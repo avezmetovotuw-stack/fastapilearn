@@ -1,0 +1,15 @@
+[Unit]
+Description=FastAPI Learn Blog API
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/fastapilearn
+EnvironmentFile=/home/ubuntu/fastapilearn/.env
+ExecStart=/home/ubuntu/fastapilearn/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

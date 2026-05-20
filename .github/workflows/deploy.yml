@@ -1,0 +1,46 @@
+name: Deploy FastAPI to VPS
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload project to server
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'venv' \
+            --exclude '__pycache__' \
+            --exclude '.env' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.PROJECT_DIR }}/"
+
+      - name: Create env file on server
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" << 'EOFSSH'
+          cd "${{ secrets.PROJECT_DIR }}"
+          cat > .env << 'EOFENV'
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          DEBUG=False
+          EOFENV
+          EOFSSH
+
+      - name: Deploy and restart service
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "cd '${{ secrets.PROJECT_DIR }}' && bash deploy/deploy.sh"
